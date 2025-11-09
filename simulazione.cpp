@@ -40,7 +40,7 @@ int main(int argc, char **argv)
 
     // DEFINIZIONE DELLE VARIABILI PRINCIPALI
 
-    TH1F *h1 = new TH1F("h1", "h1", Nbins, 0., 2.);
+    TH1F *h1 = new TH1F("h1", "h1", Nbins, xmin, xmax);
     TF1 *f1 = new TF1("simulazione", "cos([0] * x + [1])^2 + [2]", xmin, xmax);
     TH1F *h_ideale = new TH1F("h_ideale", "Valore teorico", Nbins, xmin, xmax);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv)
 
         double integral_fluct = f1->Integral(xmin, xmax);
 
-        // Riempimento dell'istogramma ideale con i valori teorici  
+        // Riempimento dell'istogramma ideale con i valori teorici
 
         for (int bin = 1; bin <= Nbins; ++bin)
         {
@@ -179,6 +179,55 @@ int main(int argc, char **argv)
         }
     }
 
+    // FIT
+
+    TH1F *h_fit = new TH1F("h_fit", "h_fit", Nbins, xmin, xmax);
+
+    f1->SetParameters(k_medio, phi_medio, b_medio);
+
+    TF1 *f_fit = new TF1("f_fit", "[3] * (cos([0] * x + [1])^2 + [2])", xmin, xmax);
+    f_fit->SetNpx(500);
+    double integral_pdf = f1->Integral(xmin, xmax);
+    double norm_factor_guess = (Nevents * bin_width) / integral_pdf;
+
+
+    f_fit->SetParameters(k_medio, phi_medio, b_medio, norm_factor_guess);
+
+    for (int i = 0; i < Nevents; ++i)
+    {
+        double x = f1->GetRandom();
+        h_fit->Fill(x);
+    }
+    // NORMALIZZAZIONE PER IL FIT
+
+    
+    h_fit->Fit(f_fit, "R");
+
+    // CALCOLO SCARTI
+
+    std::cout << "\n--- Calcolo Scarti (Residui - Punto 4) ---" << std::endl;
+    TH1F *h_residui = new TH1F("h_residui", "Residui (Dati - Fit)", Nbins, xmin, xmax);
+
+    for (int bin = 1; bin <= Nbins; ++bin)
+    {
+        double x_center = h_fit->GetBinCenter(bin);
+        double dati_content = h_fit->GetBinContent(bin);
+        double fit_value = f_fit->Eval(x_center); 
+
+        double residuo = dati_content - fit_value;
+
+        h_residui->SetBinContent(bin, residuo);
+
+        // Stampa i primi 5 punti
+        if (bin <= 5)
+        {
+            std::cout << "  Bin " << bin << ": Dati=" << dati_content
+                      << ", Fit=" << fit_value
+                      << ", Scarto=" << residuo << std::endl;
+        }
+    }
+
+    
     // DRAWING HISTO E FUNCTION
     /*TCanvas *c1 = new TCanvas ("simulazione", "simulazione", 200, 200);
 
